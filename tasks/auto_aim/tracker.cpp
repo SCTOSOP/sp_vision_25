@@ -16,6 +16,7 @@ Tracker::Tracker(const std::string & config_path, Solver & solver)
   state_{"lost"},
   pre_state_{"lost"},
   last_timestamp_(std::chrono::steady_clock::now()),
+  delta_time_ratio_(0.1),
   omni_target_priority_{ArmorPriority::fifth}
 {
   auto yaml = YAML::LoadFile(config_path);
@@ -23,6 +24,7 @@ Tracker::Tracker(const std::string & config_path, Solver & solver)
   min_detect_count_ = yaml["min_detect_count"].as<int>();
   max_temp_lost_count_ = yaml["max_temp_lost_count"].as<int>();
   outpost_max_temp_lost_count_ = yaml["outpost_max_temp_lost_count"].as<int>();
+  delta_time_ratio_ = yaml["delta_time_ratio"].as<double>();
   normal_temp_lost_count_ = max_temp_lost_count_;
 }
 
@@ -31,7 +33,8 @@ std::string Tracker::state() const { return state_; }
 std::list<Target> Tracker::track(
   std::list<Armor> & armors, std::chrono::steady_clock::time_point t, bool use_enemy_color)
 {
-  auto dt = tools::delta_time(t, last_timestamp_);
+
+  auto dt = tools::delta_time(t, last_timestamp_) * delta_time_ratio_;
   last_timestamp_ = t;
 
   // 时间间隔过长，说明可能发生了相机离线
@@ -277,12 +280,15 @@ bool Tracker::update_target(std::list<Armor> & armors, std::chrono::steady_clock
 
   if (found_count == 0) return false;
 
+  // std::cout << "armors.size=" << armors.size() << std::endl;
+
   for (auto & armor : armors) {
     if (
       armor.name != target_.name || armor.type != target_.armor_type
       //  || armor.center.x != min_x
-    )
+    ) {
       continue;
+    }
 
     solver_.solve(armor);
 

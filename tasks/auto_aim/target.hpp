@@ -45,6 +45,8 @@ public:
 
   bool checkinit();
 
+  cv::Point3f get_car_center_coord();
+
 private:
   int armor_num_;
   int switch_count_;

@@ -31,17 +31,22 @@ int main(int argc, char * argv[])
     return 0;
   }
   auto input_path = cli.get<std::string>(0);
-  auto config_path = cli.get<std::string>("config-path");
+  //auto config_path = cli.get<std::string>("config-path");
   auto start_index = cli.get<int>("start-index");
   auto end_index = cli.get<int>("end-index");
 
   tools::Plotter plotter;
   tools::Exiter exiter;
 
-  auto video_path = fmt::format("{}.avi", input_path);
-  auto text_path = fmt::format("{}.txt", input_path);
-  cv::VideoCapture video(video_path);
-  std::ifstream text(text_path);
+  // auto video_path = fmt::format("{}.avi", input_path);
+  // auto text_path = fmt::format("{}.txt", input_path);
+  
+  // cv::VideoCapture video(video_path);
+  // std::ifstream text(text_path);
+
+  cv::VideoCapture video("/home/admin/Desktop/sp_vision_25/assets/demo/demo.avi");
+  std::ifstream text("/home/admin/Desktop/sp_vision_25/assets/demo/demo.txt");
+  auto config_path="/home/admin/Desktop/sp_vision_25/configs/demo.yaml";
 
   auto_aim::YOLO yolo(config_path);
   auto_aim::Solver solver(config_path);

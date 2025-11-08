@@ -190,6 +190,7 @@ void Target::update_ypda(const Armor & armor, int id)
   Eigen::MatrixXd H = h_jacobian(ekf_.x, id);
   // Eigen::VectorXd R_dig{{4e-3, 4e-3, 1, 9e-2}};
   auto center_yaw = std::atan2(armor.xyz_in_world[1], armor.xyz_in_world[0]);
+
   auto delta_angle = tools::limit_rad(armor.ypr_in_world[0] - center_yaw);
   Eigen::VectorXd R_dig{
     {4e-3, 4e-3, log(std::abs(delta_angle) + 1) + 1,
@@ -236,6 +237,10 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list() const
     _armor_xyza_list.push_back({xyz[0], xyz[1], xyz[2], angle});
   }
   return _armor_xyza_list;
+}
+
+cv::Point3f Target::get_car_center_coord() {
+  return cv::Point3f(ekf_.x[0], ekf_.x[2], ekf_.x[4]);
 }
 
 bool Target::diverged() const

@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<opencv_storage>
+    <!-- 关键参数 -->
+    <classifier_path>/home/admin/vision_26/Configure/param/</classifier_path> <!-- 必须以 / 结尾-->
+    <enemy_color>1</enemy_color>
+    <!-- 相机参数 -->
+    <exposure_auto>0</exposure_auto>
+    <exposure_time>2000</exposure_time> <!-- us -->
+    
+    <w_auto>0</w_auto>
+    <!--<w_red>1.98</w_red>-->
+    <!--<w_blue>1.98</w_blue>-->
+
+    <w_red>1.9</w_red>
+    <w_green>1.0</w_green>
+    <w_blue>1.9</w_blue>
+
+    <gain_auto>0</gain_auto>
+    <gain>16</gain>
+    <!-- 相机参数-->
+
+    <!-- 装甲板筛选参数-->
+    <lights_angle_max_dif>15.0</lights_angle_max_dif>                    <!--角度-->
+    <lights_length_max_ratio>1.5</lights_length_max_ratio>                  
+    <lights_Y_max_ratio>1.5</lights_Y_max_ratio>                       <!--角度-->
+    <armor_width_height_min_ratio>1.1</armor_width_height_min_ratio>
+    <armor_width_height_max_ratio>5.0</armor_width_height_max_ratio>
+    <armor_max_angle>35.0</armor_max_angle>                             <!--角度-->
+    <armor_inside_thresh>85.0</armor_inside_thresh>
+
+    <armor_number_confidence>0.8</armor_number_confidence>
+    <erase_wrong_armor>1</erase_wrong_armor>
+
+    <light_height_width_min_ratio>1.5</light_height_width_min_ratio>
+    <light_height_width_max_ratio>3.0</light_height_width_max_ratio>   <!--弃用-->
+    <light_size_area_min_ratio>0.4</light_size_area_min_ratio>  
+    <light_angle_to_vertigal_max>35.0</light_angle_to_vertigal_max>      <!--角度-->
+
+    <blue_red_diff>30</blue_red_diff>
+    <red_blue_diff>25</red_blue_diff>
+
+    <blue_light_threshold>100</blue_light_threshold>   
+    <red_light_threshold>90</red_light_threshold>
+
+    <same_lights_max_dis>5</same_lights_max_dis>   
+    <same_armors_max_dis_ratio>1.5</same_armors_max_dis_ratio>
+
+    <box_height_enlarge>1.2</box_height_enlarge>    <!--1.1, 1.2 均可，1.0效果较差-->
+    <!-- 装甲板参数-->
+
+    <!-- ROI 设置 -->
+    <roi_enlarge>4.0</roi_enlarge>
+    <roi_width_to_height_ratio>3.5</roi_width_to_height_ratio>
+
+    <!-- Debug 参数 -->
+    <debug_flag_show_binaray>0</debug_flag_show_binaray>
+    <debug_flag_show_light>0</debug_flag_show_light>
+    <debug_flag_show_classifier>0</debug_flag_show_classifier>
+</opencv_storage>

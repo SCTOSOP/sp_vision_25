@@ -5,6 +5,7 @@
 #include "hikrobot/hikrobot.hpp"
 #include "mindvision/mindvision.hpp"
 #include "tools/yaml.hpp"
+#include "mercure/mercure_driver.h"
 
 namespace io
 {
@@ -26,6 +27,10 @@ Camera::Camera(const std::string & config_path)
     camera_ = std::make_unique<HikRobot>(exposure_ms, gain, vid_pid);
   }
 
+  else if (camera_name == "daheng") {
+    camera_ = std::make_unique<MercureDriver>();
+  }
+
   else {
     throw std::runtime_error("Unknow camera_name: " + camera_name + "!");
   }
@@ -34,6 +39,7 @@ Camera::Camera(const std::string & config_path)
 void Camera::read(cv::Mat & img, std::chrono::steady_clock::time_point & timestamp)
 {
   camera_->read(img, timestamp);
+  timestamp = std::chrono::steady_clock::now();
 }
 
 }  // namespace io

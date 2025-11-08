@@ -67,6 +67,22 @@ void Solver::solve(Armor & armor) const
   armor.xyz_in_gimbal = R_camera2gimbal_ * xyz_in_camera + t_camera2gimbal_;
   armor.xyz_in_world = R_gimbal2world_ * armor.xyz_in_gimbal;
 
+    // 打印相机坐标系下的坐标
+    // std::cout << "xyz_in_camera: [" 
+    //   << xyz_in_camera[0] << ", " 
+    //   << xyz_in_camera[1] << ", " 
+    //   << xyz_in_camera[2] << "]" << std::endl;
+
+    // std::cout << "xyz_in_gimbal: [" 
+    //  << armor.xyz_in_gimbal[0] << ", " 
+    //  << armor.xyz_in_gimbal[1] << ", " 
+    //  << armor.xyz_in_gimbal[2] << "]" << std::endl;
+
+    // std::cout << "xyz_in_world: [" 
+    //  << armor.xyz_in_world[0] << ", " 
+    //  << armor.xyz_in_world[1] << ", " 
+    //  << armor.xyz_in_world[2] << "]" << std::endl;
+
   cv::Mat rmat;
   cv::Rodrigues(rvec, rmat);
   Eigen::Matrix3d R_armor2camera;
@@ -84,7 +100,22 @@ void Solver::solve(Armor & armor) const
                      armor.name == ArmorName::five);
   if (is_balance) return;
 
+  armor.best_points = armor.points;
+  armor.yaw_raw = armor.ypr_in_world[0];
   optimize_yaw(armor);
+
+  static OneDKalmanFilter kf_yaw;
+
+  kf_yaw.predict();
+  double yaw_from_kf = kf_yaw.update(armor.ypr_in_world[0]);
+  if (std::abs(armor.ypr_in_world[0] - yaw_from_kf)*180/CV_PI> 50) {
+    std::cout << "std::abs(armor.ypr_in_world[0] - yaw_from_kf)*180/CV_PI> 70 = " << \
+        std::abs(armor.ypr_in_world[0] - yaw_from_kf)*180/CV_PI << std::endl;
+    kf_yaw = OneDKalmanFilter();
+    kf_yaw.setInitialState(armor.ypr_in_world[0]);
+  } else {
+    armor.ypr_in_world[0] = yaw_from_kf;
+  }
 }
 
 std::vector<cv::Point2f> Solver::reproject_armor(
@@ -197,6 +228,10 @@ void Solver::optimize_yaw(Armor & armor) const
 {
   Eigen::Vector3d gimbal_ypr = tools::eulers(R_gimbal2world_, 2, 1, 0);
 
+  auto fun_rad2angle = [](double rad) { return rad * 180.0 / CV_PI; };
+
+  // std::cout << "gimbal_ypr" << std::endl << fun_rad2angle(gimbal_ypr[0]) << " " << fun_rad2angle(gimbal_ypr[1]) << " " << fun_rad2angle(gimbal_ypr[2]) << std::endl;
+
   constexpr double SEARCH_RANGE = 140;  // degree
   auto yaw0 = tools::limit_rad(gimbal_ypr[0] - SEARCH_RANGE / 2 * CV_PI / 180.0);
 
@@ -205,13 +240,23 @@ void Solver::optimize_yaw(Armor & armor) const
 
   for (int i = 0; i < SEARCH_RANGE; i++) {
     double yaw = tools::limit_rad(yaw0 + i * CV_PI / 180.0);
-    auto error = armor_reprojection_error(armor, yaw, (i - SEARCH_RANGE / 2) * CV_PI / 180.0);
+    // auto error = armor_reprojection_error(armor, yaw, (i - SEARCH_RANGE / 2) * CV_PI / 180.0);
+    auto [error, image_points_reslut] = armor_reprojection_error(armor, yaw, (i - SEARCH_RANGE / 2) * CV_PI / 180.0, true);
 
     if (error < min_error) {
       min_error = error;
       best_yaw = yaw;
+      armor.best_points = image_points_reslut;
     }
   }
+
+  std::cout << "origin yaw=" << armor.ypd_in_world[0] * 180.0 / CV_PI << " best_yaw=" << best_yaw * 180.0 / CV_PI << std::endl;
+
+  
+
+  // std::cout << "armor.ypd_in_world[0]=" << armor.ypd_in_world[0] * 180.0 / CV_PI << \
+  // " gimbal_ypr=" << gimbal_ypr * 180.0 / CV_PI << \
+  // " best_yaw=" << best_yaw * 180.0 / CV_PI << std::endl;
 
   armor.yaw_raw = armor.ypr_in_world[0];
   armor.ypr_in_world[0] = best_yaw;
@@ -260,6 +305,17 @@ double Solver::armor_reprojection_error(
   // auto error = SJTU_cost(image_points, armor.points, inclined);
 
   return error;
+}
+
+std::pair<double, std::vector<cv::Point2f>> Solver::armor_reprojection_error(
+  const Armor & armor, double yaw, const double & inclined, bool useless) const
+{
+  auto image_points = reproject_armor(armor.xyz_in_world, yaw, armor.type, armor.name);
+  auto error = 0.0;
+  for (int i = 0; i < 4; i++) error += cv::norm(armor.points[i] - image_points[i]);
+  // auto error = SJTU_cost(image_points, armor.points, inclined);
+
+  return {error, image_points};
 }
 
 // 世界坐标到像素坐标的转换

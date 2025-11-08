@@ -146,6 +146,17 @@ AimPoint Aimer::choose_aim_point(const Target & target)
   Eigen::VectorXd ekf_x = target.ekf_x();
   std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
   auto armor_num = armor_xyza_list.size();
+
+  std::cout << "angle " << target.ekf_x()[6] << std::endl;
+
+  // 整车旋转中心的球坐标yaw
+  auto center_yaw1 = std::atan2(ekf_x[2], ekf_x[0]);
+  std::cout << "center_yaw " << center_yaw1 << std::endl;
+  auto delta_angle = tools::limit_rad(armor_xyza_list[0][3] - center_yaw1);
+  std::cout << "delta_angle " << delta_angle << std::endl;
+
+
+
   // 如果装甲板未发生过跳变，则只有当前装甲板的位置已知
   if (!target.jumped) return {true, armor_xyza_list[0]};
 

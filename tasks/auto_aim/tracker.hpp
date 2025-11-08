@@ -1,3 +1,11 @@
+/*
+ * @Author: 在百慕大钓鱼的人 mayuzhuonor@hotmail.com
+ * @Date: 2025-09-15 22:05:34
+ * @LastEditors: 在百慕大钓鱼的人 mayuzhuonor@hotmail.com
+ * @LastEditTime: 2025-11-02 13:21:48
+ * @FilePath: /sp_vision_25/tasks/auto_aim/tracker.hpp
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #ifndef AUTO_AIM__TRACKER_HPP
 #define AUTO_AIM__TRACKER_HPP
 
@@ -42,6 +50,8 @@ private:
   Target target_;
   std::chrono::steady_clock::time_point last_timestamp_;
   ArmorPriority omni_target_priority_;
+
+  double delta_time_ratio_;
 
   void state_machine(bool found);
 

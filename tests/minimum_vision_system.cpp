@@ -4,6 +4,7 @@
 
 #include "io/camera.hpp"
 #include "io/dm_imu/dm_imu.hpp"
+#include "io/wit_imu/wit_imu.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/multithread/mt_detector.hpp"
 #include "tasks/auto_aim/shooter.hpp"
@@ -24,7 +25,7 @@ int main(int argc, char * argv[])
   cv::CommandLineParser cli(argc, argv, keys);
   if (cli.has("help") || !cli.has("@config-path")) {
     cli.printMessage();
-    return 0;
+    return -1;
   }
 
   auto config_path = cli.get<std::string>("@config-path");
@@ -32,31 +33,67 @@ int main(int argc, char * argv[])
   tools::Exiter exiter;
   tools::Plotter plotter;
   io::Camera camera(config_path);
-  io::DM_IMU dm_imu;
+  cv::VideoCapture video("/home/admin/2025-sentinel-vision_szy_version/red2.mp4");
+  // cv::VideoCapture video("/home/admin/Downloads/bule_slow.mp4");
+  // cv::VideoCapture video("/home/admin/Desktop/sp_vision_25/demo.avi");
+  video.set(cv::CAP_PROP_POS_FRAMES, 0);
+  // io::DM_IMU dm_imu;
+  io::WIT_IMU wit_imu("/dev/ttyUSB0");
 
   auto_aim::multithread::MultiThreadDetector detector(config_path);
+  auto_aim::Detector traditionalDetector(config_path, false);
   auto_aim::Solver solver(config_path);
   auto_aim::Tracker tracker(config_path, solver);
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
 
-  auto detect_thread = std::thread([&]() {
-    cv::Mat img;
-    std::chrono::steady_clock::time_point t;
+  // auto detect_thread = std::thread([&]() {
+  //   cv::Mat img;
+  //   std::chrono::steady_clock::time_point t;
 
-    while (!exiter.exit()) {
-      camera.read(img, t);
-      detector.push(img, t);
-    }
-  });
+  //   bool pause = false;
+
+  //   while (!exiter.exit()) {
+  //     auto key = cv::waitKey(2);
+  //     if (key == 's' || key == 'S') {
+  //       pause = !pause;
+  //     }
+  //     if (pause) {
+  //       continue;
+  //     }
+  //     // camera.read(img, t);
+  //     for (int i=0;i<1;i++) {
+  //       video.read(img);
+  //     }
+  //     img.convertTo(img, -1, 0.4, 0);
+  //     t = std::chrono::steady_clock::now();
+  //     // std::cout << img.cols << "x" << img.rows << std::endl;
+  //     // img = img(cv::Range(300,900), cv::Range(280,1080));
+  //     detector.push(img, t);
+  //   }
+  // });
 
   auto last_t = std::chrono::steady_clock::now();
   nlohmann::json data;
 
   while (!exiter.exit()) {
-    auto [img, armors, t] = detector.debug_pop();
+    // auto [img, armors, t] = detector.debug_pop();
+    cv::Mat img;
+    std::chrono::steady_clock::time_point t;
+    camera.read(img, t);
+    video.read(img);
+    img.convertTo(img, -1, 0.8, 0);
+    auto armors = traditionalDetector.detect(img);
 
-    Eigen::Quaterniond q = dm_imu.imu_at(t);
+    // Eigen::Quaterniond q = dm_imu.imu_at(t);
+    Eigen::Quaterniond q = wit_imu.get_data();
+    q = Eigen::Quaterniond(0.591614, 0.0524902, -0.0493469, 0.802948);
+    std::cout << q << std::endl;
+
+    auto rvec = q.toRotationMatrix();
+    auto euler_angles = rvec.eulerAngles(2, 1, 0);
+    std::string ypr_message = std::to_string(euler_angles[0]*180.0/CV_PI) + " " + std::to_string(euler_angles[1]*180.0/CV_PI) + " " + std::to_string(euler_angles[2]*180.0/CV_PI);
+    tools::draw_text(img, ypr_message, {10, 60}, {255, 255, 255}); // 显示 IMU的yaw pitch roll
 
     solver.set_R_gimbal2world(q);
 
@@ -96,6 +133,10 @@ int main(int argc, char * argv[])
       auto target = targets.front();
       tools::draw_text(img, fmt::format("[{}]", tracker.state()), {10, 30}, {255, 255, 255});
 
+      cv::circle(img, {0, img.rows/2+((int)(armors.front().ypr_in_world[0]*180/CV_PI)*2)}, 10, {0, 0, 0, 255}, -1);
+      cv::circle(img, {0, img.rows/2+((int)(armors.front().yaw_raw*180/CV_PI)*2)}, 10, {0, 255, 0, 255}, -1);
+
+
       // 当前帧target更新后
       std::vector<Eigen::Vector4d> armor_xyza_list = target.armor_xyza_list();
       for (const Eigen::Vector4d & xyza : armor_xyza_list) {
@@ -104,15 +145,30 @@ int main(int argc, char * argv[])
         tools::draw_points(img, image_points, {0, 255, 0});
       }
 
+      // 画一下识别到的装甲板
+      for (const auto& armor : armors) {
+        if (armor.best_points.empty()) {
+          continue;
+        }
+        tools::draw_points(img, armor.best_points, {0, 255, 255});  // red
+      }
+
+      // 画一下车中心看看捏
+      cv::Point3f car_center_coord = target.get_car_center_coord();
+      auto car_center_coord_in_image = solver.world2pixel({car_center_coord});
+      tools::draw_points(img, car_center_coord_in_image, {0, 0, 255}, 20);
+
       // aimer瞄准位置
       auto aim_point = aimer.debug_aim_point;
       Eigen::Vector4d aim_xyza = aim_point.xyza;
       auto image_points =
         solver.reproject_armor(aim_xyza.head(3), aim_xyza[3], target.armor_type, target.name);
-      if (aim_point.valid)
+      if (aim_point.valid) {
         tools::draw_points(img, image_points, {0, 0, 255});  // red
-      else
+      }
+      else {
         tools::draw_points(img, image_points, {255, 0, 0});  // blue
+      }
 
       // 观测器内部数据
       Eigen::VectorXd x = target.ekf_x();
@@ -140,14 +196,14 @@ int main(int argc, char * argv[])
       data["nis_fail"] = target.ekf().data.at("nis_fail");
       data["nees_fail"] = target.ekf().data.at("nees_fail");
       data["recent_nis_failures"] = target.ekf().data.at("recent_nis_failures");
-    }
+    } 
     cv::resize(img, img, {}, 0.5, 0.5);  // 显示时缩小图片尺寸
     cv::imshow("reprojection", img);
     auto key = cv::waitKey(1);
     if (key == 'q') break;
   }
 
-  detect_thread.join();
+  // detect_thread.join();
 
   return 0;
 }
